@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="outer">xxx</div>
+  <script>
+    const template = /* html */`<div id="qiankun-xxx">
+    <div id="inner">hello shadow dom</div>
+    <style>
+      div {
+        color: red;
+      }
+    </style>
+  </div>`
+    const container = document.createElement('div')
+    container.innerHTML = template
+    // 影子dom video audio标签的一些属性 方法 
+    const appElement = container.firstChild
+    let oldContent = appElement.innerHTML
+    appElement.innerHTML = ''
+    const shadow = appElement.attachShadow({
+      mode: 'closed'
+    })
+    shadow.innerHTML = oldContent // 放到影子dom
+    document.body.appendChild(appElement)
+  </script>
+</body>
+
+</html>

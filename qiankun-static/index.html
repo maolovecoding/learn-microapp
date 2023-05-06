@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="static"></div>
+  <script entry>
+    // http-serve --port 30000 --cors
+    const app = document.getElementById('static')
+    if (!window.__POWERED_BY_QIANKUN__) {
+      app.innerHTML = 'static nnn'
+    }
+    window['static-demo'] = {
+      async bootstrap() {
+        console.log('static bootstrap')
+      },
+      async mount() {
+        app.innerHTML = 'static'
+      },
+      async unmount() {
+        app.innerHTML = ''
+      },
+    }
+  </script>
+</body>
+
+</html>

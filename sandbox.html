@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <script>
+    // 沙箱 防止应用加载的时候 对window造成污染 3种方案：
+    // a应用更改了window属性 删掉
+    // b更改的window属性
+    // 1. 快照
+    // 先保留a应用的属性，失活的时候，把修改的属性存起来，激活的时候还原回来
+    // 缺点：浪费内存，因为要给window拍照
+    class SnapshotSandbox {
+      constructor() {
+        this.modifyPropsMap = {} // 存储全局那些属性被修改了
+      }
+      active() {
+        this.windowSnapshot = {} // window快照
+        Object.keys(window).forEach(prop => {
+          this.windowSnapshot[prop] = window[prop]
+        })
+        // 把上次失活时修改的属性重新映射上去
+        Object.keys(this.modifyPropsMap).forEach(prop => {
+          window[prop] = this.modifyPropsMap[prop]
+        })
+      }
+      deactive() {
+        this.modifyPropsMap = {}
+        Object.keys(window).forEach(prop => {
+          if (window[prop] !== this.windowSnapshot[prop]) {
+            this.modifyPropsMap[prop] = window[prop] // 存修改的属性
+            window[prop] = this.windowSnapshot[prop]
+          }
+        })
+      }
+    }
+    // const sandbox = new SnapshotSandbox
+    // sandbox.active()
+    // window.a = 10
+    // window.b = 10
+    // console.log('激活1', window.a, window.b)
+    // // 失活
+    // sandbox.deactive()
+    // console.log('失活', window.a, window.b)
+    // console.log(sandbox.modifyPropsMap) // 可以拿到修改的属性 就是 a b
+    // sandbox.active()
+    // console.log('激活2', window.a, window.b)
+
+    // 2. 不拍照 只给修改的属性进行记录
+    // 缺点：
+    // 1. proxy 兼容性不好 （针对ie而已 都用vue3了怕个锤子）
+    // 2. 如果同时运行2个或多个子应用 会出现错乱 所以只能单例的情况下使用
+    // 优点： 节约内存
+    class LegacySandbox {
+      constructor() {
+        // 1. 修改的内容 2. 新增内容 3. 不管修改还是新增的
+        this.modifyPropsMap = new Map()
+        this.addedPropsMap = new Map()
+        this.currentPropsMap = new Map() // 所有改变的属性 都保存最新的值
+        const fakeWindow = Object.create(null) // 虚拟一个window
+        const proxy = new Proxy(fakeWindow, {
+          get: (target, key, receiver) => {
+            return Reflect.get(window, key, receiver)
+          },
+          set: (target, key, value, receiver) => {
+            if (!Reflect.has(window, key)) {
+              this.addedPropsMap.set(key, value) // 新增属性
+            } else if (!this.modifyPropsMap.has(key)) {
+              // 修改 保存修改前的值
+              this.modifyPropsMap.set(key, Reflect.get(window, key, receiver))
+            }
+            this.currentPropsMap.set(key, value)
+            return Reflect.set(window, key, value)
+          }
+        })
+        this.proxy = proxy
+      }
+      active() {
+        this.currentPropsMap.forEach((val, key) => {
+          this.setWindowProp(key, val)
+        })
+      }
+      deactive() {
+        // 失活 还原修改的属性
+        this.modifyPropsMap.forEach((val, key) => {
+          this.setWindowProp(key, val)
+        })
+        // 添加的属性 需要删除
+        this.addedPropsMap.forEach((val, key) => {
+          this.setWindowProp(key, undefined)
+        })
+      }
+      setWindowProp(key, val) {
+        if (val === undefined) {
+          Reflect.deleteProperty(window, key) // 删除新增的属性
+        } else {
+          Reflect.set(window, key, val) // 用原值覆盖
+        }
+      }
+    }
+    // const sandbox = new LegacySandbox
+    // sandbox.active()
+    // sandbox.proxy.a = 10
+    // sandbox.proxy.b = 10
+    // console.log('激活1', window.a, window.b)
+    // // 失活
+    // sandbox.deactive()
+    // console.log('失活', window.a, window.b)
+    // sandbox.active()
+    // console.log('激活2', window.a, window.b)
+
+
+    // 3. 多个子应用实例的方案 
+    // 每个应用都有一个代理window  实际操作不去影响window
+    class ProxySandbox {
+      constructor() {
+        this.running = false
+        const fakeWindow = Object.create(null)
+        this.proxy = new Proxy(fakeWindow, {
+          get: (target, key) => {
+            if (!this.running) return window[key]
+            return key in target ? target[key] : window[key]
+          },
+          set: (target, key, val) => {
+            if (this.running) target[key] = val
+            return true // 修改的时候不操作window了
+          }
+        })
+      }
+      active() {
+        if (!this.running) this.running = true
+      }
+      deactive() {
+        if (this.running) this.running = false
+      }
+    }
+    const sandbox1 = new ProxySandbox
+    const sandbox2 = new ProxySandbox
+    sandbox1.active()
+    sandbox1.proxy.a = 10
+    sandbox2.active()
+    sandbox2.proxy.a = 20
+    console.log(sandbox1.proxy.a, sandbox2.proxy.a)
+    sandbox1.deactive()
+    sandbox2.deactive()
+    console.log(sandbox1.proxy.a, sandbox2.proxy.a)
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <!-- <script src="https://cdn.bootcdn.net/ajax/libs/single-spa/5.9.3/umd/single-spa.min.js"></script> -->
+  <div id="root"></div>
+  <a href="#/a">a应用</a>
+  <a href="#/b">b应用</a>
+  <button onclick="go('#/a')">a应用</button>
+  <button onclick="go('#/b')">b应用</button>
+  <script>
+    function go(url) {
+      history.pushState({}, '', url)
+    }
+  </script>
+  <script type="module">
+    // singleSpa 全局注入的对象
+    // const { registerApplication, start } = singleSpa
+    import { registerApplication, start } from './single-spa/single-spa.js'
+    // 微前端 就是可以加载不同的应用 基于路由的微前端
+    // 如何接入已经写好的应用？ 对应single-spa而言 我们需要改写子应用 暴露接入协议
+    // bootstrap 启动
+    // mount 挂载
+    // unmount 卸载
+    const app1 = {
+      bootstrap: [
+        async (props) => console.log('app1 bootstrap1', 'props => ', props),
+        async () => console.log('app1 bootstrap2'),
+      ],
+      mount: [
+        async (props) => {
+          // createVue(xx).mount(xx)
+          console.log('app1 mount', 'props => ', props)
+          root.innerHTML = 'app1 xxx'
+        },
+        async (props) => {
+          // createVue(xx).mount(xx)
+          console.log('app1 mount2', 'props => ', props)
+        }
+      ],
+      unmount: async () => {
+        console.log('app1 unmount')
+        root.innerHTML = ''
+      }
+    }
+    const app2 = {
+      bootstrap: async (props) => console.log('app2 bootstrap', 'props => ', props),
+      mount: [
+        async () => {
+          await new Promise(resolve => {
+            setTimeout(() => {
+              console.log('app2 mount1')
+              resolve()
+            }, 1000);
+          })
+        },
+        async (props) => {
+          console.log('app2 mount2', 'props => ', props)
+          root.innerHTML = 'app2 aaa'
+        },
+      ],
+      unmount: async () => {
+        console.log('app2 unmount')
+        root.innerHTML = ''
+      }
+    }
+    // 注册子应用 路径是 #/a 加载 a应用 
+    registerApplication('a', async () => app1, location => location.hash.startsWith('#/a'), {
+      a: 1 // 给子应用传递数据
+    })
+    registerApplication('b', async () => app2, location => location.hash.startsWith('#/b'), {
+      b: 2
+    })
+    // 启动
+    start()
+
+    // 主应用的监听操作 应该被延迟到 当应用挂载完毕后再执行
+    window.addEventListener('hashchange', () => {
+      console.log(window.location.hash)
+    })
+  </script>
+</body>
+
+</html>

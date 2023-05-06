@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <h3>主应用 当前页面是主应用基座</h3>
+  <script type="systemjs-importmap">
+    {
+      "imports": {
+        "react": "https://cdn.bootcdn.net/ajax/libs/react/18.2.0/umd/react.development.js",
+        "react-dom": "https://cdn.bootcdn.net/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"
+      }
+    }
+  </script>
+  <div id="root"></div>
+  <!-- <script src="https://cdn.bootcdn.net/ajax/libs/systemjs/6.10.1/system.min.js"></script> -->
+  <script src="./Systemjs.js"></script>
+  <script>
+    // 直接加载子应用 采用的是system规范
+    // import 返回值是promise 可以拿到加载信息
+    System.import('./index.js').then(() => {
+      console.log('模块index加载完毕！')
+    })
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <template id="btn">
+    <button class="my-button">
+      <slot>默认按钮</slot>
+    </button>
+  </template>
+  <my-button type="primary">我是按钮</my-button>
+  <my-button></my-button>
+  <script>
+    // 1. custom element：允许自定义一个元素 随便起名字
+    // 2. shadow dom 样式隔离是webcomponent的一部分
+    // 3. 可以支持组件的特点：模板插槽 生命周期 属性 都是组件的特点
+    class MyButton extends HTMLElement {
+      connectedCallback() {
+        // console.log('元素加载完毕')
+        // 元素挂载完成后 我们需要获取传入的属性 并且使用对应的模板来渲染
+        this.shadow = this.attachShadow({ mode: 'closed' })
+        const btn = document.getElementById('btn') // 模板
+        const tml = btn.content.cloneNode(true) // 克隆模板内容
+        // console.log(btn)
+        const btnType = this.getAttribute('type') || 'default'
+        // console.log(btnType)
+        const types = {
+          'primary': {
+            background: 'skyblue'
+          },
+          'default': {
+            background: '#a1a1a1'
+          }
+        }
+        const style = document.createElement('style')
+        style.innerHTML = `
+        .my-button {
+          background: ${types[btnType]['background']};
+          color: #fff;
+          padding: 10px 20px;
+          border: 0;
+          border-radius: 4px;
+        }
+        `
+        this.shadow.appendChild(style)
+        this.shadow.appendChild(tml)
+        // console.log(this.shadow.querySelector('.my-button'))
+        // 派发事件
+        this.dispatchEvent(new CustomEvent('mounted'))
+      }
+      static get observedAttributes() {
+        return ['type'] // 监控那些属性变化
+      }
+      attributeChangedCallback(name, oldVal, newVal) { // 属性变化
+        console.log(name, newVal, oldVal)
+        if (this.shadow) {
+          const btn = this.shadow.querySelector('.my-button')
+          btn.style.background = newVal === 'default' ? '#a1a1a1' : 'skyblue'
+          this.dispatchEvent(new CustomEvent('updated'))
+        }
+      }
+      // 组件卸载触发
+      disconnectedCallback() { }
+      // 移动到其他地方触发
+      adoptedCallback() { }
+    }
+    const customBtn = document.querySelector('my-button')
+    console.log(customBtn)
+    customBtn.addEventListener('mounted', () => {
+      console.log('mounted')
+    })
+    customBtn.addEventListener('updated', () => {
+      console.log('updated')
+    })
+    window.customElements.define('my-button', MyButton)
+    setTimeout(() => {
+      customBtn.setAttribute('type', 'default')
+    }, 1000);
+  </script>
+</body>
+
+</html>

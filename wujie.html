@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <div>基座的代码，不被子应用的样式所污染</div>
+  <!-- 加载子应用的div -->
+  <div id="rootContainer"></div>
+  <script>
+    (async function () {
+      /**
+     * 以前我们的js隔离都是放到沙箱中跑的（手动实现） => iframe
+     * 我们的css隔离 shadow dom 或者 scoped css => webcomponent(shadowRoot)
+     * 渲染采用webcomponent 拉取html模板 生成自定义组件插入到指定的dom中
+     * 无界：
+     * 1. js隔离 走iframe
+     * 2. css隔离 走webcomponent
+     */
+      const strTmpWithCSS = await fetch('./wujie.txt').then(res => res.text())
+      console.log(strTmpWithCSS)
+      const strScript = `
+      window.a = 10 // 此属性不会影响父应用
+      console.log(window.a)
+      const ele = document.querySelector('#inner')
+      console.log(ele)
+    `
+      function createIframe() {
+        const iframe = document.createElement('iframe')
+        iframe.src = 'about:blank'
+        document.body.appendChild(iframe)
+        return iframe
+      }
+      function createSanbox() {
+        const sanbox = {
+          iframe: createIframe(),
+          shadowRoot: null
+        }
+        return sanbox
+      }
+      function injectTemplate(sanbox, template) {
+        const wrapper = document.createElement('div')
+        wrapper.innerHTML = template
+        sanbox.shadowRoot.appendChild(wrapper)
+      }
+      function runScriptsInSanbox(sanbox, strScript) {
+        const iframeWindow = sanbox.iframe.contentWindow
+        // console.log(iframeWindow)
+        const scriptElement = iframeWindow.document.createElement('script')
+        // 获取head 将script插入
+        const headEle = iframeWindow.document.querySelector('head')
+        // 脚本执行之前 有些方法应该是调用父应用的
+        // document.querySelector等 不应该是iframe的 找不到dom => shadow dom
+        // 弹框这些 createElement等 appendChild 代理到全局window
+        // iframe路由管理系统 history.pushstate 一些常用方法同步到主应用
+        Object.defineProperty(iframeWindow.Document.prototype, 'querySelector', {
+          get() {
+            return new Proxy(sanbox.shadowRoot['querySelector'], {
+              apply(target, thisArgs, args) {
+                console.log(target, thisArgs, args)
+                return thisArgs.querySelector.apply(sanbox.shadowRoot, args)
+              }
+            })
+          }
+        })
+        scriptElement.textContent = strScript
+        headEle.appendChild(scriptElement)
+      }
+      // 定义一个组件来使用
+      function createCustomElement() {
+        class WujieApp extends HTMLElement {
+          connectedCallback() {
+            console.log('标签渲染完毕')
+            // 1. 创建沙箱
+            const sanbox = createSanbox()
+            // 2. 创建shadowdom
+            sanbox.shadowRoot = this.attachShadow({ mode: "open" })
+            // 3. html和css放到沙箱执行
+            injectTemplate(sanbox, strTmpWithCSS)
+            // 4. js放到沙箱中跑
+            runScriptsInSanbox(sanbox, strScript)
+          }
+        }
+
+        window.customElements.define('wujie-app', WujieApp)
+        rootContainer.appendChild(document.createElement('wujie-app'))
+      }
+      createCustomElement()
+    })()
+  </script>
+</body>
+
+</html>
